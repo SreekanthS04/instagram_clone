@@ -1,77 +1,80 @@
-// src/pages/Profile.tsx
 import { useEffect, useState } from "react";
-import { Grid, BookMarked, UserSquare2, Settings, Play } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { Grid, ArrowLeft, MoreVertical, Play } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL as string;
 
-export default function Profile() {
+interface User {
+  _id: string;
+  username: string;
+  fullName?: string;
+  profilePicture?: string;
+  bio?: string;
+  followers?: number;
+  following?: number;
+  posts?: number;
+}
+
+export default function UserProfile() {
+  const { userId } = useParams<{ userId: string }>();
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"posts" | "saved" | "tagged">("posts");
-  const navigate = useNavigate();
+  const [isFollowing, setIsFollowing] = useState(false);
 
-  const getUserFromStorage = () => {
+  const getCurrentUser = () => {
     try {
       const userStr = localStorage.getItem("user");
       if (!userStr) return null;
       return JSON.parse(userStr);
-    } catch (err) {
-      console.error("Failed to parse user from localStorage:", err);
+    } catch {
       return null;
     }
   };
 
-  const [user, setUser] = useState(getUserFromStorage());
+  const currentUser = getCurrentUser();
+  const isOwnProfile = currentUser?._id === userId;
 
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
+    if (userId) {
+      if (isOwnProfile) {
+        navigate("/profile", { replace: true });
+        return;
+      }
+      fetchUserData();
+      fetchUserPosts();
     }
-    fetchUserPosts();
-  }, []);
+  }, [userId, isOwnProfile]);
+
+  const fetchUserData = async () => {
+    try {
+      const res = await fetch(`${API}/api/auth/users`);
+      if (!res.ok) throw new Error("Failed to fetch user");
+      const allUsers = await res.json();
+      const foundUser = allUsers.find((u: User) => u._id === userId);
+      if (!foundUser) throw new Error("User not found");
+      setUser(foundUser);
+    } catch (err: any) {
+      setError(err.message || "Failed to load user");
+    }
+  };
 
   const fetchUserPosts = async () => {
-    if (!user || !user._id) {
-      setError("User information not available");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
     try {
-      const res = await fetch(`${API}/api/posts?userId=${user._id}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) throw new Error(`Failed to fetch posts: ${res.status}`);
-
+      const res = await fetch(`${API}/api/posts?userId=${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch posts");
       const data = await res.json();
       setPosts(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      setError(err.message || "Failed to load posts");
-      setPosts([]);
+      console.error("Failed to fetch posts:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const updatedUser = getUserFromStorage();
-      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(user)) {
-        setUser(updatedUser);
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  // Images → /post/:id   |   Videos/Reels → /reels (scroll to that reel)
+  // Images → /post/:id  |  Reels → /reels?id=:id
   const handlePostClick = (post: any) => {
     const id = post.id || post._id;
     if (post.isReel) {
@@ -81,16 +84,31 @@ export default function Profile() {
     }
   };
 
-  if (!user) {
+  const getProfilePictureUrl = () => {
+    if (!user) return "";
+    if (user.profilePicture?.startsWith("http")) return user.profilePicture;
+    if (user.profilePicture) return `${API}${user.profilePicture}`;
+    return `https://i.pravatar.cc/150?u=${user.username}`;
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please login to view profile</p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-teal-500 text-white rounded-lg font-semibold"
-          >
-            Go to Login
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || "User not found"}</p>
+          <button onClick={() => navigate(-1)} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+            Go Back
           </button>
         </div>
       </div>
@@ -100,6 +118,19 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="flex items-center justify-between p-4">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-xl font-semibold">{user.username}</h1>
+            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <MoreVertical className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
         {/* Profile Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="p-6 md:p-8">
@@ -108,15 +139,14 @@ export default function Profile() {
               <div className="flex justify-center md:justify-start">
                 <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-gradient-to-br from-purple-500 to-teal-500 p-1">
                   <div className="w-full h-full rounded-full overflow-hidden bg-white p-1">
-                    {user.profilePicture && user.profilePicture.startsWith("http") ? (
-                      <img src={user.profilePicture} alt={user.username} className="w-full h-full object-cover rounded-full" />
-                    ) : user.profilePicture ? (
-                      <img src={`${API}${user.profilePicture}`} alt={user.username} className="w-full h-full object-cover rounded-full" />
-                    ) : (
-                      <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-teal-500 flex items-center justify-center text-white text-4xl font-bold">
-                        {user.username?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
+                    <img
+                      src={getProfilePictureUrl()}
+                      alt={user.username}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://i.pravatar.cc/150?u=${user.username}`;
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -125,11 +155,18 @@ export default function Profile() {
               <div className="flex-1 text-center md:text-left">
                 <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
                   <h1 className="text-2xl font-light">{user.username}</h1>
-                  <button className="px-6 py-1.5 bg-gray-100 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors">
-                    Edit Profile
+                  <button
+                    onClick={() => setIsFollowing(!isFollowing)}
+                    className={`px-6 py-1.5 rounded-lg font-semibold text-sm transition-all ${
+                      isFollowing
+                        ? "bg-gray-200 text-gray-900 hover:bg-gray-300"
+                        : "bg-gradient-to-r from-purple-600 to-teal-500 text-white hover:shadow-lg"
+                    }`}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
                   </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <Settings className="w-5 h-5" />
+                  <button className="px-6 py-1.5 bg-gray-100 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors">
+                    Message
                   </button>
                 </div>
 
@@ -145,85 +182,30 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="border-t border-gray-200 flex justify-center gap-12">
-            <button
-              onClick={() => setActiveTab("posts")}
-              className={`py-3 flex items-center gap-2 border-t-2 transition-colors ${
-                activeTab === "posts" ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
+          {/* Posts Tab */}
+          <div className="border-t border-gray-200 flex justify-center">
+            <div className="py-3 flex items-center gap-2 border-t-2 border-gray-900 text-gray-900">
               <Grid className="w-5 h-5" />
-              <span className="hidden md:inline text-xs font-semibold uppercase">Posts</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("saved")}
-              className={`py-3 flex items-center gap-2 border-t-2 transition-colors ${
-                activeTab === "saved" ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <BookMarked className="w-5 h-5" />
-              <span className="hidden md:inline text-xs font-semibold uppercase">Saved</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("tagged")}
-              className={`py-3 flex items-center gap-2 border-t-2 transition-colors ${
-                activeTab === "tagged" ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <UserSquare2 className="w-5 h-5" />
-              <span className="hidden md:inline text-xs font-semibold uppercase">Tagged</span>
-            </button>
+              <span className="text-xs font-semibold uppercase">Posts</span>
+            </div>
           </div>
         </div>
 
         {/* Posts Grid */}
         <div className="p-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading posts...</p>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="text-center py-20">
-              <p className="text-red-600 mb-4">{error}</p>
-              <button onClick={fetchUserPosts} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                Try Again
-              </button>
-            </div>
-          ) : activeTab === "posts" && posts.length === 0 ? (
+          {posts.length === 0 ? (
             <div className="text-center py-20">
               <div className="w-16 h-16 rounded-full border-4 border-gray-900 mx-auto mb-4 flex items-center justify-center">
                 <Grid className="w-8 h-8" />
               </div>
               <p className="text-2xl font-light mb-2">No Posts Yet</p>
-              <p className="text-gray-600 mb-6">When you share photos, they'll appear on your profile.</p>
-              <button
-                onClick={() => navigate("/upload")}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-teal-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-              >
-                Create Your First Post
-              </button>
-            </div>
-          ) : activeTab === "saved" ? (
-            <div className="text-center py-20">
-              <BookMarked className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600">No saved posts yet</p>
-            </div>
-          ) : activeTab === "tagged" ? (
-            <div className="text-center py-20">
-              <UserSquare2 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600">No tagged posts yet</p>
+              <p className="text-gray-600">{user.username} hasn't shared anything yet.</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-1">
               {posts.map((post) => {
                 const isAI = post.aiDetection?.isAIGenerated === true;
                 const isReel = post.isReel === true;
-
-                // Build the correct thumbnail URL
                 const rawUrl = isReel ? post.videoUrl : post.imageUrl;
                 const mediaUrl = rawUrl?.startsWith("http") ? rawUrl : `${API}${rawUrl}`;
 
@@ -233,7 +215,7 @@ export default function Profile() {
                     className="aspect-square overflow-hidden cursor-pointer relative group bg-gray-900"
                     onClick={() => handlePostClick(post)}
                   >
-                    {/* ── Reel: show video element as thumbnail ── */}
+                    {/* Reel → video element for thumbnail */}
                     {isReel ? (
                       <video
                         src={mediaUrl}
@@ -242,37 +224,35 @@ export default function Profile() {
                         preload="metadata"
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
-                          // If video fails, hide it so the dark bg shows
                           (e.currentTarget as HTMLVideoElement).style.display = "none";
                         }}
                       />
                     ) : (
-                      /* ── Image post ── */
                       <img
                         src={mediaUrl}
                         alt={post.caption || "Post"}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
-                          e.currentTarget.src = "https://via.placeholder.com/400?text=Image+Not+Found";
+                          e.currentTarget.src = "https://via.placeholder.com/400?text=Not+Found";
                         }}
                       />
                     )}
 
-                    {/* Reel play icon indicator */}
+                    {/* Reel play icon */}
                     {isReel && (
                       <div className="absolute top-2 right-2 z-10 text-white drop-shadow-lg">
                         <Play className="w-5 h-5 fill-white" />
                       </div>
                     )}
 
-                    {/* AI Badge */}
+                    {/* AI Badge — no emoji, safe on all platforms */}
                     {isAI && (
                       <div className="absolute top-2 left-2 z-10 bg-black/75 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-lg">
                         <span>AI</span>
                       </div>
                     )}
 
-                    {/* Hover Overlay */}
+                    {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-6 text-white">
                         <div className="flex items-center gap-2">

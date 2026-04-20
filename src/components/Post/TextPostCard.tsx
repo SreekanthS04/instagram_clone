@@ -1,9 +1,9 @@
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Trash2, AlertTriangle, CheckCircle, XCircle, HelpCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL as string;
 
-interface PostCardProps {
+interface TextPostCardProps {
   post: {
     id?: string;
     _id?: string;
@@ -13,16 +13,18 @@ interface PostCardProps {
       profilePicture?: string;
       fullName?: string;
     };
-    caption?: string;
-    imageUrl: string;
+    textContent: string;
     likes?: any[];
     comments?: any[];
     shares?: number;
     createdAt?: string;
-    aiDetection?: {
-      isAIGenerated: boolean;
-      confidence: number;
-      detectionDate?: string;
+    factCheck?: {
+      isVerified: boolean;
+      verdict: string;
+      confidence: string;
+      supportingSources?: any[];
+      contradictingSources?: any[];
+      checkedDate?: string;
     };
   };
   onDelete?: (postId: string) => void;
@@ -40,7 +42,7 @@ const getCurrentUser = () => {
 
 const getToken = () => localStorage.getItem("token");
 
-export default function PostCard({ post, onDelete }: PostCardProps) {
+export default function TextPostCard({ post, onDelete }: TextPostCardProps) {
   const currentUser = getCurrentUser();
   const postId = post.id || post._id;
   const isOwner = currentUser?._id === post.user?._id;
@@ -53,12 +55,11 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
   );
   const [likeLoading, setLikeLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -76,12 +77,6 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
     setLikes(newLikes);
     setLiked(currentUser ? newLikes.includes(currentUser._id) : false);
   }, [post.likes]);
-
-  const getImageUrl = () => {
-    if (!post.imageUrl) return "https://via.placeholder.com/400?text=No+Image";
-    if (post.imageUrl.startsWith("http")) return post.imageUrl;
-    return `${API}${post.imageUrl}`;
-  };
 
   const getProfilePictureUrl = () => {
     if (post.user?.profilePicture?.startsWith("http")) return post.user.profilePicture;
@@ -152,6 +147,31 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
     }
   };
 
+  const getVerdictColor = (verdict: string) => {
+    if (verdict.includes("TRUE")) return "bg-green-500";
+    if (verdict.includes("FALSE")) return "bg-red-500";
+    if (verdict.includes("DISPUTED")) return "bg-yellow-500";
+    return "bg-gray-500";
+  };
+
+  const getVerdictIcon = (verdict: string) => {
+    if (verdict.includes("TRUE")) return <CheckCircle className="w-5 h-5" />;
+    if (verdict.includes("FALSE")) return <XCircle className="w-5 h-5" />;
+    if (verdict.includes("DISPUTED")) return <AlertTriangle className="w-5 h-5" />;
+    return <HelpCircle className="w-5 h-5" />;
+  };
+
+  const getVerdictText = (verdict: string) => {
+    if (verdict === "LIKELY TRUE") return "Likely True";
+    if (verdict === "LIKELY FALSE") return "Likely False";
+    if (verdict === "DISPUTED") return "Disputed";
+    if (verdict === "UNVERIFIABLE") return "Cannot Verify";
+    return verdict;
+  };
+
+  const factCheck = post.factCheck;
+  const hasFactCheck = factCheck && factCheck.verdict !== "PENDING";
+
   return (
     <div className="bg-white border rounded-lg mb-6">
       {/* Header */}
@@ -171,7 +191,6 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
           </div>
         </div>
 
-        {/* More ⋯ button with dropdown */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -192,44 +211,106 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
                   {deleting ? "Deleting..." : "Delete post"}
                 </button>
               ) : (
-                <div className="px-4 py-3 text-gray-400 text-sm text-center">
-                  No options
-                </div>
+                <div className="px-4 py-3 text-gray-400 text-sm text-center">No options</div>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Image with AI Badge */}
-      <div className="w-full bg-gray-100 relative">
-        {imageError ? (
-          <div className="w-full aspect-square flex items-center justify-center bg-gray-200">
-            <p className="text-gray-500">Failed to load image</p>
-          </div>
-        ) : (
-          <>
-            <img
-              src={getImageUrl()}
-              alt={post.caption || "Post"}
-              className="w-full object-cover"
-              style={{ maxHeight: "600px" }}
-              onError={() => setImageError(true)}
-            />
-            {post.aiDetection?.isAIGenerated && (
-              <div className="absolute top-3 left-3 bg-black bg-opacity-80 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex flex-col leading-tight shadow-lg backdrop-blur-sm">
-                <span>AI Generated</span>
-                <span className="text-[10px] text-gray-300 font-normal">
-                  {Math.round(post.aiDetection.confidence * 100)}% confidence
-                </span>
+      {/* Fact-Check Badge */}
+      {hasFactCheck && (
+        <div className="mx-3 mb-3">
+          <div className={`${getVerdictColor(factCheck.verdict)} text-white rounded-lg p-3 shadow-lg`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                {getVerdictIcon(factCheck.verdict)}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-bold text-sm">Fact Check: {getVerdictText(factCheck.verdict)}</p>
+                  {factCheck.confidence && (
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                      {factCheck.confidence}
+                    </span>
+                  )}
+                </div>
+                
+                {(factCheck.supportingSources && factCheck.supportingSources.length > 0) || 
+                 (factCheck.contradictingSources && factCheck.contradictingSources.length > 0) ? (
+                  <button
+                    onClick={() => setShowSources(!showSources)}
+                    className="text-xs underline hover:no-underline mt-1"
+                  >
+                    {showSources ? "Hide sources" : `View ${
+                      (factCheck.supportingSources?.length || 0) + (factCheck.contradictingSources?.length || 0)
+                    } sources`}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Sources Dropdown */}
+            {showSources && (
+              <div className="mt-3 pt-3 border-t border-white/20">
+                {factCheck.supportingSources && factCheck.supportingSources.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Supporting Sources ({factCheck.supportingSources.length})
+                    </p>
+                    {factCheck.supportingSources.map((source: any, idx: number) => (
+                      <a
+                        key={idx}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-xs bg-white/10 hover:bg-white/20 rounded p-2 mb-1 transition-colors"
+                      >
+                        <p className="font-medium truncate">{source.title}</p>
+                        <p className="text-white/80 text-[10px]">{source.domain}</p>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {factCheck.contradictingSources && factCheck.contradictingSources.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                      <XCircle className="w-3 h-3" />
+                      Contradicting Sources ({factCheck.contradictingSources.length})
+                    </p>
+                    {factCheck.contradictingSources.map((source: any, idx: number) => (
+                      <a
+                        key={idx}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-xs bg-white/10 hover:bg-white/20 rounded p-2 mb-1 transition-colors"
+                      >
+                        <p className="font-medium truncate">{source.title}</p>
+                        <p className="text-white/80 text-[10px]">{source.domain}</p>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </>
-        )}
+          </div>
+        </div>
+      )}
+
+      {/* Text Content */}
+      <div className="px-3 pb-3">
+        <div className="bg-gradient-to-br from-purple-50 to-teal-50 rounded-lg p-4 border border-purple-100">
+          <p className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap">
+            {post.textContent}
+          </p>
+        </div>
       </div>
 
       {/* Actions */}
-      <div className="p-3">
+      <div className="px-3 pb-3">
         <div className="flex items-center justify-between mb-3">
           <div className="flex gap-4">
             <button
@@ -257,13 +338,6 @@ export default function PostCard({ post, onDelete }: PostCardProps) {
         {likes.length > 0 && (
           <p className="font-semibold text-sm mb-2">
             {likes.length} {likes.length === 1 ? "like" : "likes"}
-          </p>
-        )}
-
-        {post.caption && (
-          <p className="text-sm">
-            <span className="font-semibold mr-2">{post.user?.username || "Unknown User"}</span>
-            {post.caption}
           </p>
         )}
 

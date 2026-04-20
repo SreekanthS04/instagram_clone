@@ -1,24 +1,25 @@
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Temp processing folders
+temp_faces/
+temp_frames/
+backend/temp_faces/
+backend/temp_frames/
 
+# Bolt editor
+.bolt/
+
+# AI test datasets - DO NOT PUSH
+backend/AI_modules/kaggle_data/
+backend/AI_modules/real/
+backend/AI_modules/eval_results/
+backend/AI_modules/ai/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Uploaded media
+backend/uploads/
+
+# Debug file
+backend/debug.py
 node_modules
-dist
-dist-ssr
-*.local
-
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
-backend/.env

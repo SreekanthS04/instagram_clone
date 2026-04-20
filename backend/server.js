@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.js";
 import postRoutes from "./routes/posts.js";
 
 dotenv.config();
+console.log("JWT_SECRET =", process.env.JWT_SECRET);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,6 @@ mongoose
     console.error("DB connection error:", err);
     process.exit(1);
   });
-
+console.log("NODE GOOGLE_API_KEY:", process.env.GOOGLE_API_KEY);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));

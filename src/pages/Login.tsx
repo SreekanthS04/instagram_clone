@@ -1,13 +1,6 @@
-// src/pages/Login.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 const API = import.meta.env.VITE_API_URL as string;
-
-type AuthResponse = {
-  token: string;
-  user: any;
-};
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,51 +9,52 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const goToHome = () => navigate("/");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       if (isLogin) {
-        // login
+        // LOGIN
         const res = await fetch(`${API}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Login failed");
-        const payload = data as AuthResponse;
-        localStorage.setItem("token", payload.token);
-        localStorage.setItem("user", JSON.stringify(payload.user));
-        goToHome();
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // 🔑 FORCE APP TO RECHECK AUTH
+        window.location.href = "/";
       } else {
-        // register
+        // REGISTER
         const res = await fetch(`${API}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, email, password, fullName }),
+          body: JSON.stringify({
+            username,
+            email,
+            password,
+            fullName,
+          }),
         });
+
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Register failed");
-        // auto-login after register (backend returns user object)
-        // perform login to get token
-        const loginRes = await fetch(`${API}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const loginData = await loginRes.json();
-        if (!loginRes.ok) throw new Error(loginData.message || "Login after register failed");
-        localStorage.setItem("token", loginData.token);
-        localStorage.setItem("user", JSON.stringify(loginData.user));
-        goToHome();
+        if (!res.ok) throw new Error(data.message || "Signup failed");
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // 🔑 FORCE APP TO RECHECK AUTH
+        window.location.href = "/";
       }
     } catch (err: any) {
-      alert(err.message || "Auth error");
+      alert(err.message || "Authentication error");
     } finally {
       setLoading(false);
     }
@@ -69,7 +63,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-        <h2 className="text-2xl font-semibold mb-4">{isLogin ? "Login" : "Create account"}</h2>
+        <h2 className="text-2xl font-semibold mb-4">
+          {isLogin ? "Login" : "Create account"}
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
@@ -82,7 +78,7 @@ export default function Login() {
                 required
               />
               <input
-                placeholder="Full name"
+                placeholder="Full Name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full px-4 py-2 border rounded"
@@ -92,19 +88,19 @@ export default function Login() {
 
           <input
             placeholder="Email"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 border rounded"
-            type="email"
             required
           />
 
           <input
             placeholder="Password"
+            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 border rounded"
-            type="password"
             required
           />
 
@@ -113,16 +109,18 @@ export default function Login() {
             disabled={loading}
             className="w-full py-2 bg-gradient-to-r from-purple-600 to-teal-500 text-white rounded"
           >
-            {loading ? "Please wait..." : isLogin ? "Login" : "Register"}
+            {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
           </button>
         </form>
 
         <div className="mt-4 text-center">
           <button
-            onClick={() => setIsLogin((s) => !s)}
+            onClick={() => setIsLogin((v) => !v)}
             className="text-sm text-gray-600 underline"
           >
-            {isLogin ? "Create an account" : "Already have an account? Login"}
+            {isLogin
+              ? "Don't have an account? Sign up"
+              : "Already have an account? Login"}
           </button>
         </div>
       </div>
