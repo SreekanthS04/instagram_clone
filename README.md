@@ -69,42 +69,54 @@ Final score = `(image_score × 0.80) + (temporal_score × 0.20)`
 ---
 
 ## Project Structure
+
+```
 instagram_clone/
 ├── backend/
-│   ├── AI_modules/          # Python AI detection scripts
-│   │   ├── image.py         # Image detection ensemble
-│   │   ├── detect_wrapper.py        # Image detection CLI wrapper
-│   │   ├── video.py         # Video detection orchestrator
-│   │   ├── video_image.py   # Frame-level detection
-│   │   ├── video_detect_wrapper.py  # Video detection CLI wrapper
-│   │   ├── text.py          # Text fact checking
-│   │   └── text_fact_check_wrapper.py
+│   ├── AI_modules/
+│   │   ├── image.py
+│   │   ├── detect_wrapper.py
+│   │   ├── video.py
+│   │   ├── video_image.py
+│   │   ├── video_detect_wrapper.py
+│   │   ├── text.py
+│   │   ├── text_fact_check_wrapper.py
+│   │   ├── claimextractor.py
+│   │   ├── verify_paragraph.py
+│   │   ├── watermark.py
+│   │   └── run_eval.py
 │   ├── models/
-│   │   ├── User.js          # User schema
-│   │   └── Post.js          # Post schema
+│   │   ├── User.js
+│   │   └── Post.js
 │   ├── routes/
-│   │   ├── auth.js          # Auth routes
-│   │   └── posts.js         # Post routes
-│   └── server.js            # Express server entry point
+│   │   ├── auth.js
+│   │   └── posts.js
+│   └── server.js
 ├── src/
-│   ├── components/          # Reusable React components
+│   ├── components/
 │   │   ├── Layout/
 │   │   ├── Post/
 │   │   ├── Reel/
 │   │   ├── Profile/
 │   │   └── Notification/
-│   ├── pages/               # Page components
+│   ├── pages/
 │   │   ├── Home.tsx
 │   │   ├── Login.tsx
+│   │   ├── Notifications.tsx
+│   │   ├── PostDetail.tsx
 │   │   ├── Profile.tsx
 │   │   ├── Reels.tsx
 │   │   ├── Search.tsx
 │   │   ├── Upload.tsx
-│   │   └── PostDetail.tsx
-│   └── main.tsx             # React entry point
-└── package.json
-
----
+│   │   └── UserProfile.tsx
+│   ├── types/
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── package.json
+├── index.html
+└── vite.config.ts
+```
 
 ## Getting Started
 
